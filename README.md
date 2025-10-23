@@ -6,6 +6,8 @@ this repository contains an r markdown script (`dx_eu_master_replication.rmd`) c
 
 this script processes data from five timepoints (t1-t5) to create composite diagnostic variables based on reports from both adolescent participants and their parents. the primary goal is to generate analysis-ready datasets in both long and wide formats, saved to a specified output directory.
 
+data is available upon request (eugiampe@stanford.edu)
+
 ## data collection procedures
 
 across the first four timepoints, diagnostic information was collected using semi-structured interviews with both adolescents and their parents. at the fifth timepoint, participants completed a self-report structured interview.
