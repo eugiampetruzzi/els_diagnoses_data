@@ -2,9 +2,7 @@
 
 ## repository description
 
-this repository contains an r markdown script (`dx_eu_master_replication.rmd`) created to wrangle, score, and standardize diagnostic data collected by the stanford neurodevelopment, affect, and psychopathology (snap) lab for the longitudinal study of early life stress (els).
-
-**note: both the r markdown source file (`.rmd`) and a rendered html version (`.html`) are available in this repository.**
+this repository contains an r markdown script (`dx_eu_master_replication.rmd`) created to wrangle, score, and standardize diagnostic data collected by the stanford neurodevelopment, affect, and psychopathology (snap) lab for the longitudinal study of early life stress (els). both the r markdown source file (`.rmd`) and a rendered html version (`.html`) are available in this repository.
 
 this script processes data from five timepoints (t1-t5) to create composite diagnostic variables based on reports from both adolescent participants and their parents. the primary goal is to generate analysis-ready datasets in both long and wide formats, saved to a specified output directory.
 
