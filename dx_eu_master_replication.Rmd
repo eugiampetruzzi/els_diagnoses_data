@@ -519,7 +519,7 @@ conversion_counts <- colSums(select(conversion_data, starts_with("none_")), na.r
 print(conversion_counts)
 ```
 
-##sample: incidence (t1-t3 healthy, t4 or t5 diagnosis)
+## sample: incidence (t1-t3 healthy, t4 or t5 diagnosis)
 
 ```{r}
 # 1. load the final wide data with flags
