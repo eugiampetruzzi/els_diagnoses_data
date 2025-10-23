@@ -1,0 +1,571 @@
+---
+title: "dx_eu_master_replication"
+author: "Eugenia Giampetruzzi"
+date: "2025-10-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = TRUE, warning = FALSE)
+```
+
+```{r}
+R.version.string
+```
+
+# summary
+
+this script processes raw ksads data from multiple timepoints (t1, t2, t3, t4) for the els project. it also integrates a pre-processed t5 scid file.
+
+the primary goal is to create a "master" file for each timepoint, summarizing current diagnoses, and then combine these into a single long-format file and a final wide-format file for analyses.
+
+# set up
+
+two critical rules are applied throughout this script:
+
+1.  **"definite" diagnosis (score = 4):** a diagnosis is only considered "present" (coded as `1`) if the raw score is `4` ("definite"). all other scores (e.g., `0`="no info", `1`="not present", `2`="probable", `3`="partial remission", `na`) are coded as `0` ("absent"). NA = NA.
+2.  **parent or child report:** a participant is assigned a diagnosis (e.g., `dx_gad = 1`) if *either* the parent or the child informant reported a "definite" (`4`) score for that diagnosis.
+
+# step 1: packages
+
+this chunk loads all necessary packages for the entire script.
+
+```{r load-libraries}
+library(tidyverse) # includes dplyr, stringr, readr, and tidyr
+library(readxl)    # for reading .xlsx files
+library(knitr)     # for formatting summary tables
+```
+
+# step 2: file paths
+
+all input file paths are defined here for easy modification.
+
+```{r define-paths}
+# base path for input files 
+base_path <- "/Users/eu/Library/CloudStorage/OneDrive-Stanford/Research Projects/1 - Data/ELS/diagnoses/inputs/"
+# base path for output files 
+output_path <- "/Users/eu/Library/CloudStorage/OneDrive-Stanford/Research Projects/1 - Data/ELS/diagnoses/outputs/"
+
+# timepoint 1 (excel)
+path_t1_p <- file.path(base_path, "ELS_T1_Parent_KSADS.xlsx")
+path_t1_c <- file.path(base_path, "ELS_T1_Child_KSADS.xlsx")
+
+# timepoint 2 (excel)
+path_t2_p <- file.path(base_path, "ELS_T2_Parent_KSADS.xlsx")
+path_t2_c <- file.path(base_path, "ELS_T2_Child_KSADS.xlsx")
+
+# timepoint 3 (excel)
+path_t3_p <- file.path(base_path, "ELS_T3_Parent_KSADS.xlsx")
+path_t3_c <- file.path(base_path, "ELS_T3_Child_KSADS.xlsx")
+
+# timepoint 4 (csv)
+path_t4_p <- file.path(base_path, "ELS_T4_Parent_KSADS.csv")
+path_t4_c <- file.path(base_path, "ELS_T4_Child_KSADS.csv")
+
+# timepoint 5 (excel) - updated path
+path_t5_groups <- file.path(base_path, "scid_by_diag_jess.xlsx")
+```
+
+# step 3: define diagnostic groups
+
+this list defines which individual diagnoses (`dx_...`) are grouped into the final categories. this list is used by the `create_diagnostic_groups` function.
+
+```{r define-groups}
+dx_group_list <- list(
+  bipolar = c("dx_mania", "dx_hypo", "dx_cyc", "dx_bpn", "dx_bp1", "dx_bp2"),
+  depression = c("dx_mde", "dx_dys", "dx_ddnos"),
+  schizophrenia = c("dx_psyc"),
+  substance = c("dx_alcho_a", "dx_alcho_d", "dx_sub_a", "dx_sub_d"),
+  anxiety = c("dx_panicd", "dx_sepad", "dx_smp", "dx_sop", "dx_agor", "dx_gad"),
+  ocdrelated = c("dx_ocd"),
+  sleep = c(), # no sleep variables were present in the source files
+  eating = c("dx_anor", "dx_bul"),
+  adhd = c("dx_add", "dx_addc", "dx_admc"), # renamed from 'ta_adhd'
+  stress = c("dx_ptsd", "dx_acutesd"),
+  disruptive_personality = c("dx_con", "dx_odd", "dx_opd", "dx_npd")
+)
+```
+
+# step 4: functions
+
+in this step, we define two functions for the main processing steps.
+
+## function 1: `process_ksads_timepoint()`
+
+this function loads, cleans, and merges the parent and child data for a single timepoint. it creates the "master" file containing all binary-coded (`0`/`1`) variables.
+
+```{r define-processing-function}
+process_ksads_timepoint <- function(tp_name, path_p, path_c,
+                                    id_col_p, id_col_c,
+                                    clean_prefix_p, clean_prefix_c,
+                                    file_type = "excel") {
+
+  message(paste0("--- starting processing for: ", tp_name, " ---"))
+
+  # 1. load data
+  if (file_type == "excel") {
+    parent_data <- read_excel(path_p, sheet = 1)
+    child_data <- read_excel(path_c, sheet = 1)
+  } else if (file_type == "csv") {
+    parent_data <- read_csv(path_p, show_col_types = FALSE)
+    child_data <- read_csv(path_c, show_col_types = FALSE)
+  } else {
+    stop("invalid file_type specified.")
+  }
+
+  # 2. select current dx cols & standardize id
+  parent_current_dx <- parent_data %>%
+    dplyr::select(all_of(id_col_p), ends_with("_c"), ends_with("_curr")) %>%
+    rename(els_id = !!id_col_p)
+
+  child_current_dx <- child_data %>%
+    dplyr::select(all_of(id_col_c), ends_with("_c"), ends_with("_curr")) %>%
+    rename(els_id = !!id_col_c)
+
+  # 3. clean column names
+  if (clean_prefix_p != "") {
+    names(parent_current_dx) <- str_replace_all(names(parent_current_dx), clean_prefix_p, "")
+  }
+  if (clean_prefix_c != "") {
+    names(child_current_dx) <- str_replace_all(names(child_current_dx), clean_prefix_c, "")
+  }
+
+  names(parent_current_dx) <- tolower(names(parent_current_dx))
+  names(child_current_dx) <- tolower(names(child_current_dx))
+
+  # 4. merge parent & child
+  merged_data <- full_join(parent_current_dx, child_current_dx,
+                           by = "els_id", suffix = c("_parent", "_child"))
+
+  # 5. get base diagnosis names
+  dx_cols_base <- names(merged_data) %>%
+    grep("_parent$", ., value = TRUE) %>%
+    str_replace(., "_parent$", "") %>%
+    setdiff("els_id")
+
+  # 6. create 'dx_' (parent or child) summary variables
+  for (dx_base in dx_cols_base) {
+    parent_col <- paste0(dx_base, "_parent")
+    child_col <- paste0(dx_base, "_child")
+    new_col_name <- paste0("dx_", str_replace(dx_base, "_c$|_curr$", ""))
+
+    merged_data <- merged_data %>%
+      rowwise() %>%
+      mutate(
+        !!new_col_name := ifelse(
+          sum(.data[[parent_col]] == 4, .data[[child_col]] == 4, na.rm = TRUE) > 0, 1, 0
+        )
+      ) %>%
+      ungroup()
+  }
+
+  # 7. create '_01' (binary) variables for individual reporters
+  original_cols <- names(merged_data)[grepl("_parent$|_child$", names(merged_data))]
+  for (col_name in original_cols) {
+    new_col_name <- paste0(col_name, "_01")
+    merged_data <- merged_data %>%
+      mutate(
+        !!new_col_name := case_when(.data[[col_name]] == 4 ~ 1, TRUE ~ 0)
+      )
+  }
+
+  # 8. create final master data frame (binary vars only)
+  final_master_data <- merged_data %>%
+    dplyr::select(els_id, starts_with("dx_"), ends_with("_01"))
+
+  # 9. save master file
+  output_filename <- file.path(output_path, paste0("ksads_", tp_name, "_eu_master.csv"))
+  write.csv(final_master_data, output_filename, row.names = FALSE)
+  # --- FIX 2: Use message() instead of cat() ---
+  message(paste0("successfully created: ", output_filename))
+
+  return(final_master_data)
+}
+```
+
+## function 2: `create_diagnostic_groups()`
+
+this function takes a "master" data frame, groups the `dx_` variables into the final categories (like `anxiety`, `depression`), and saves the "groups" file.
+
+```{r define-grouping-function}
+create_diagnostic_groups <- function(master_data, group_list, tp_name) {
+
+  group_names <- names(group_list)
+
+  # 1. create a new dataframe of just the grouped columns
+  grouped_cols <- purrr::map_dfc(group_list, ~ {
+    current_dx_vars <- .x
+    master_data %>%
+      rowwise() %>%
+      transmute(new_col = max(c_across(any_of(current_dx_vars)), na.rm = TRUE))
+  })
+
+  # 2. rename the new columns to the group names
+  names(grouped_cols) <- group_names
+
+  # 3. bind the new grouped columns back to the original els_id
+  ksads_grouped <- master_data %>%
+    dplyr::select(els_id) %>%
+    dplyr::bind_cols(grouped_cols)
+
+  # 4. handle -inf values and missing 'sleep' column
+  ksads_grouped_clean <- ksads_grouped %>%
+    mutate(across(all_of(group_names), ~if_else(is.infinite(.), 0, .))) %>%
+    mutate(sleep = if("sleep" %in% names(.)) sleep else 0)
+
+  # 5. select only the id and the new summary groups
+  final_groups <- ksads_grouped_clean %>%
+    dplyr::select(els_id, all_of(group_names))
+
+  # 6. save the new data to a csv file
+  output_filename <- file.path(output_path, paste0("ksads_", tp_name, "_dx_groups.csv"))
+  write.csv(final_groups, output_filename, row.names = FALSE)
+  message(paste0("successfully created: ", output_filename, "\n"))
+
+  return(final_groups)
+}
+```
+
+# step 5: process timepoints
+
+```{r process-t1}
+# process t1
+t1_master <- process_ksads_timepoint(
+  tp_name = "t1",
+  path_p = path_t1_p, path_c = path_t1_c,
+  id_col_p = "ELS_ID", id_col_c = "ELS_ID",
+  clean_prefix_p = "T1_KSADS_P_", clean_prefix_c = "", # child file already had clean names
+  file_type = "excel"
+)
+
+t1_groups <- create_diagnostic_groups(t1_master, dx_group_list, "t1")
+```
+
+```{r process-t2}
+# process t2
+t2_master <- process_ksads_timepoint(
+  tp_name = "t2",
+  path_p = path_t2_p, path_c = path_t2_c,
+  id_col_p = "ELS_ID", id_col_c = "ELS_ID",
+  clean_prefix_p = "T2_KSADS_P_", clean_prefix_c = "T2_KSADS_C_",
+  file_type = "excel"
+)
+
+t2_groups <- create_diagnostic_groups(t2_master, dx_group_list, "t2")
+```
+
+```{r process-t3}
+# process t3
+t3_master <- process_ksads_timepoint(
+  tp_name = "t3",
+  path_p = path_t3_p, path_c = path_t3_c,
+  id_col_p = "ELS_ID", id_col_c = "ELS_ID",
+  clean_prefix_p = "t3_ksads_p_", clean_prefix_c = "t3_ksads_c_",
+  file_type = "excel"
+)
+
+t3_groups <- create_diagnostic_groups(t3_master, dx_group_list, "t3")
+```
+
+```{r process-t4}
+# process t4
+# note: t4 is a csv and has a non-standard id
+t4_master_raw <- process_ksads_timepoint(
+  tp_name = "t4",
+  path_p = path_t4_p, path_c = path_t4_c,
+  id_col_p = "els_id_time_point", id_col_c = "els_id_time_point",
+  clean_prefix_p = "t4_ksads_p_", clean_prefix_c = "t4_ksads_c_",
+  file_type = "csv"
+)
+
+# fix t4 id column 
+# the id is in format "1001_t4," so we need to extract the numeric part.
+t4_master_fixed <- t4_master_raw %>%
+  mutate(els_id = as.numeric(str_extract(els_id, "^[0-9]+"))) %>%
+  # remove any rows that are now na for els_id
+  filter(!is.na(els_id))
+
+# re-save the t4 master file with the correct id
+# --- save to output_path ---
+t4_master_filename <- file.path(output_path, "ksads_t4_eu_master.csv")
+write.csv(t4_master_fixed, t4_master_filename, row.names = FALSE)
+cat("overwrote ksads_t4_eu_master.csv with corrected numeric 'els_id'.\n")
+
+# create t4 groups using the fixed data
+t4_groups <- create_diagnostic_groups(t4_master_fixed, dx_group_list, "t4")
+```
+
+# step 6: compile T1-T5
+
+this chunk combines the four `_dx_groups.csv` files we just created with the t5 groups file. this chunk is updated to read the t5 data from an excel file.
+
+```{r compile-all-timepoints}
+# 1. list all the group files to compile (using full paths)
+files_to_compile <- c(
+  file.path(output_path, "ksads_t1_dx_groups.csv"),
+  file.path(output_path, "ksads_t2_dx_groups.csv"),
+  file.path(output_path, "ksads_t3_dx_groups.csv"),
+  file.path(output_path, "ksads_t4_dx_groups.csv")
+)
+
+# 2. read and stack t1-t4
+t1_t4_data <- files_to_compile %>%
+  map_dfr(~ read_csv(.x, show_col_types = FALSE) %>%
+            mutate(timepoint = str_extract(basename(.x), "t[1-4]") %>% str_to_upper())
+  )
+
+# 3. read and process t5 data
+t5_data <- read_excel(path_t5_groups, sheet = 1) %>% 
+  rename(els_id = 1) %>% 
+  rename_with(~"adhd", any_of("ta_adhd")) %>%
+  mutate(timepoint = "T5")
+
+# 4. combine all data frames
+combined_data <- bind_rows(t1_t4_data, t5_data)
+
+# 5. reorder columns and save the final compiled long file
+final_long_data <- combined_data %>%
+  dplyr::select(
+    els_id, timepoint,
+    all_of(names(dx_group_list))
+  )
+
+# --- save to output_path ---
+output_long_filename <- file.path(output_path, "dx_master_eu_long_format.csv")
+write.csv(final_long_data, output_long_filename, row.names = FALSE)
+
+message(paste0("success. all five timepoints compiled into: '", output_long_filename, "'."))
+glimpse(final_long_data)
+```
+
+this outputs: dx_master_eu_long_format.csv
+
+# step 7: create wide format file
+
+this chunk converts the long-format file into a wide-format file (one row per participant) and saves it.
+
+```{r create-wide-file}
+# 1. read the long-format file 
+long_data <- read_csv(file.path(output_path, "dx_master_eu_long_format.csv"), show_col_types = FALSE)
+
+# 2. pivot to wide format
+wide_data <- long_data %>%
+  pivot_wider(
+    names_from = timepoint,
+    values_from = all_of(names(dx_group_list)),
+    values_fn = list # Use list to handle potential duplicates
+  ) %>%
+  unnest(cols = everything(), keep_empty = TRUE) %>% # Unnest list cols
+  dplyr::rename_with(~ tolower(str_replace(.x, "_T([1-5])$", "_t\\1")))
+
+# 3. save the wide file (to output_path)
+output_wide_filename <- file.path(output_path, "dx_master_eu.csv")
+write.csv(wide_data, output_wide_filename, row.names = FALSE)
+
+message(paste0("success. created wide-format master file: '", output_wide_filename, "'."))
+glimpse(wide_data)
+```
+
+this outputs: dx_master_eu.csv \# step 8: create "any" diagnosis flags
+
+this final processing step reads the wide-format file, and creates the final "any diagnosis" flags for analysis for each t, correctly preserving `na` values for missing data at any Ts
+
+so for example for t1
+
+`any_dx_t1 = 1` if any `_t1` column is 1. `any_dx_t1 = 0` if all `_t1` columns are 0. `any_dx_t1 = NA` if all `_t1` columns are `NA`.
+
+```{r clean-nas-and-add-flags}
+# 1. load the wide file we just created (from output_path)
+wide_data <- read_csv(file.path(output_path, "dx_master_eu.csv"), show_col_types = FALSE)
+
+# 2. define a helper function to correctly handle nas
+max_or_na <- function(x) {
+  res <- max(x, na.rm = TRUE)
+  ifelse(is.infinite(res), NA_real_, res)
+}
+
+# 3. create the "any_dx" flags for each timepoint and lifetime
+final_wide_with_flags <- wide_data %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    any_dx_t1 = max_or_na(c_across(ends_with("_t1"))),
+    any_dx_t2 = max_or_na(c_across(ends_with("_t2"))),
+    any_dx_t3 = max_or_na(c_across(ends_with("_t3"))),
+    any_dx_t4 = max_or_na(c_across(ends_with("_t4"))),
+    any_dx_t5 = max_or_na(c_across(ends_with("_t5")))
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    any_dx_lifetime = max_or_na(c_across(starts_with("any_dx_t"))),
+    dx_any_t1t4 = max_or_na(c_across(c(any_dx_t1, any_dx_t2, any_dx_t3, any_dx_t4)))
+  ) %>%
+  dplyr::ungroup()
+
+# 4. save the new file with flags (to output_path)
+output_wide_flags_filename <- file.path(output_path, "dx_master_eu_with_flags.csv")
+write.csv(final_wide_with_flags, output_wide_flags_filename, row.names = FALSE)
+
+message(paste0("success. final wide file with 'any_dx' flags created:\n", output_wide_flags_filename))
+glimpse(final_wide_with_flags)
+```
+
+this outputs: dx_master_eu_with_flags.csv
+
+# appendix: data summaries & verification
+
+these chunks run summaries on the final files for verification.
+
+## summary: Ns per T
+
+this chunk calculates participant interview/available data at each timepoint and provides separate counts for 'present' (1) and 'absent' (0) diagnoses, excluding na (missing) values from the counts.
+
+```{r}
+# 1. read the final compiled long file 
+compiled_data_raw <- read_csv(file.path(output_path, "dx_master_eu_long_format.csv"), show_col_types = FALSE)
+
+# force all dx group columns to be numeric
+compiled_data <- compiled_data_raw %>%
+  mutate(across(all_of(names(dx_group_list)), as.numeric))
+
+# 2. calculate n of available data per timepoint
+available_data_counts <- compiled_data %>%
+  group_by(timepoint) %>%
+  summarise(
+    n_available_data = sum(!is.na(depression)) # count non-na rows
+  ) %>%
+  arrange(factor(timepoint, levels = c("T1", "T2", "T3", "T4", "T5")))
+
+message("--- n of participants with available dx data per timepoint ---")
+knitr::kable(available_data_counts, align = "c")
+
+# 3. calculate counts of 1s (present)
+summary_counts_present <- compiled_data %>%
+  group_by(timepoint) %>%
+  summarise(across(all_of(names(dx_group_list)), ~ sum(. == 1, na.rm = TRUE))) %>%
+  arrange(factor(timepoint, levels = c("T1", "T2", "T3", "T4", "T5")))
+
+# 4. pivot for table
+pretty_table_present <- summary_counts_present %>%
+  pivot_longer(cols = -timepoint, names_to = "diagnosis", values_to = "count_1s") %>%
+  pivot_wider(names_from = timepoint, values_from = count_1s) %>%
+  mutate(total_1s = rowSums(dplyr::select(., -diagnosis), na.rm = TRUE))
+
+message("\n\n--- summary of 'present' diagnoses (count of 1s) ---")
+knitr::kable(pretty_table_present, align = "c")
+
+# 6. calculate counts of 0s (absent)
+summary_counts_absent <- compiled_data %>%
+  group_by(timepoint) %>%
+  summarise(across(all_of(names(dx_group_list)), ~ sum(. == 0, na.rm = TRUE))) %>%
+  arrange(factor(timepoint, levels = c("T1", "T2", "T3", "T4", "T5")))
+
+# 7. pivot for table
+pretty_table_absent <- summary_counts_absent %>%
+  pivot_longer(cols = -timepoint, names_to = "diagnosis", values_to = "count_0s") %>%
+  pivot_wider(names_from = timepoint, values_from = count_0s)
+
+message("\n\n--- summary of 'absent' diagnoses (count of 0s) ---")
+knitr::kable(pretty_table_absent, align = "c")
+```
+
+##summary: strict conversion counts
+
+this chunk calculates the N of participants who were "healthy" (no diagnosis) through a certain timepoint and later converted. this uses the final wide-format file with flags with the strict na handling.
+
+```{r}
+# 1. load the final wide-format master file with flags
+master_data <- read_csv(file.path(output_path, "dx_master_eu_with_flags.csv"), show_col_types = FALSE)
+
+# 2. create the strict conversion variables 
+conversion_data <- master_data %>%
+  dplyr::select(els_id, starts_with("any_dx_"), dx_any_t1t4) %>%
+  mutate(
+    # healthy through t1 -> converts at t5
+    none_T1_to_T5_strict = case_when(
+      is.na(any_dx_t1) | is.na(any_dx_t5) ~ NA_real_,
+      any_dx_t1 == 0 & any_dx_t5 == 1     ~ 1,
+      TRUE                                ~ 0
+    ),
+    # healthy through t2 -> converts at t5
+    none_T1T2_to_T5_strict = case_when(
+      is.na(any_dx_t1) | is.na(any_dx_t2) | is.na(any_dx_t5) ~ NA_real_,
+      any_dx_t1 == 0 & any_dx_t2 == 0 & any_dx_t5 == 1     ~ 1,
+      TRUE                                                  ~ 0
+    ),
+    # healthy through t2 -> converts at t4 or t5
+    none_T1T2_to_T4_or_T5_strict = case_when(
+      is.na(any_dx_t1) | is.na(any_dx_t2) | is.na(any_dx_t4) | is.na(any_dx_t5) ~ NA_real_,
+      any_dx_t1 == 0 & any_dx_t2 == 0 & (any_dx_t4 == 1 | any_dx_t5 == 1)     ~ 1,
+      TRUE                                                                    ~ 0
+    ),
+    # healthy through t3 -> converts at t4 or t5
+    none_T1T3_to_T4_or_T5_strict = case_when(
+      is.na(any_dx_t1) | is.na(any_dx_t2) | is.na(any_dx_t3) | is.na(any_dx_t4) | is.na(any_dx_t5) ~ NA_real_,
+      any_dx_t1 == 0 & any_dx_t2 == 0 & any_dx_t3 == 0 & (any_dx_t4 == 1 | any_dx_t5 == 1)     ~ 1,
+      TRUE                                                                                    ~ 0
+    ),
+    # healthy through t4 -> converts at t5
+    none_T1T4_to_T5_strict = case_when(
+      is.na(dx_any_t1t4) | is.na(any_dx_t5) ~ NA_real_,
+      dx_any_t1t4 == 0 & any_dx_t5 == 1    ~ 1,
+      TRUE                                 ~ 0
+    )
+  )
+
+# 3. print the counts 
+message("--- counts for strict conversion variables (ignoring NAs) ---")
+conversion_counts <- colSums(select(conversion_data, starts_with("none_")), na.rm = TRUE)
+print(conversion_counts)
+```
+
+##sample: incidence (t1-t3 healthy, t4 or t5 diagnosis)
+
+```{r}
+# 1. load the final wide data with flags
+master_data <- read_csv(file.path(output_path, "dx_master_eu_with_flags.csv"), show_col_types = FALSE)
+
+# 2. filter to define the incidence sample
+incidence_sample_t1t3_healthy <- master_data %>%
+  dplyr::filter(
+    any_dx_t1 == 0, # healthy at t1
+    any_dx_t2 == 0, # healthy at t2
+    any_dx_t3 == 0, # healthy at t3
+    # must have outcome data at either t4 or t5 (non-na)
+    (!is.na(any_dx_t4) | !is.na(any_dx_t5))
+  )
+
+# 3. create the incidence variable
+incidence_sample_with_incidence <- incidence_sample_t1t3_healthy %>%
+  dplyr::mutate(
+    # incidence if diagnosis present at t4 or t5 (handle potential nas)
+    incidence_t4_or_t5 = case_when(
+      any_dx_t4 == 1 | any_dx_t5 == 1 ~ 1, # developed a diagnosis (incidence)
+      TRUE                            ~ 0  # remained healthy
+    )
+  )
+
+# 4. summarize the incidence counts
+incidence_summary <- incidence_sample_with_incidence %>%
+  dplyr::count(incidence_t4_or_t5, name = "N") %>%
+  dplyr::mutate(
+    Percentage = (N / sum(N)) * 100,
+    Group = case_when(
+      incidence_t4_or_t5 == 1 ~ "Diagnosis Incidence Group (New Diagnosis at T4 or T5)",
+      incidence_t4_or_t5 == 0 ~ "Control Incidence (No Diagnosis at T4/T5)"
+    )
+  )
+
+# 5. print the summary
+message("--- Summary of Incidence in T1-T3 Healthy Sample (N=", nrow(incidence_sample_with_incidence), ") ---")
+# use kable for nice printing in the r markdown visual
+knitr::kable(
+  incidence_summary %>% select(Group, N, Percentage),
+  digits = 1,
+  align = 'lrr'
+)
+
+#print the ids of the incidence group
+incidence_ids_group <- incidence_sample_with_incidence %>% filter(incidence_t4_or_t5 == 1) %>% pull(els_id)
+message("\nIDs of Incidence Group: ", paste(incidence_ids_group, collapse=", "))
+```
