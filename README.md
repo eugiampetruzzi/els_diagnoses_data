@@ -56,5 +56,6 @@ to assess inter-rater reliability of the diagnoses, we randomly selected five au
 * given that subthreshold and past ratings (e.g., 2 or 3) were excluded from the analytic sample, we also evaluated reliability focused on classifying diagnoses as absent versus present (e.g., 1 or 4).
 * raters demonstrated high reliability, with gwet’s ac1 = 0.73, a stable chance-corrected estimate for dichotomous diagnostic classifications.
 
+![figure 1 flowchart](flowchart_els_diagnoses.png)
   
 
