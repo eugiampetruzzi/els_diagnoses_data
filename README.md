@@ -57,3 +57,14 @@ to assess inter-rater reliability of the diagnoses, we randomly selected five au
 * raters demonstrated high reliability, with gwet’s ac1 = 0.73, a stable chance-corrected estimate for dichotomous diagnostic classifications.
 
 figure 1. flowchart of criteria for the final analytic sample.
+
+```mermaid
+graph TD
+    A[full cohort (n=224)<br>completed k-sads at baseline] --> B{healthy t1-t3?}
+    B -- no --> C[excluded from subsample]
+    B -- yes (n=106) --> D{valid data at t4/t5?}
+    D -- no --> E[lost to follow-up / missing data]
+    D -- yes (n=88) --> F{final assessment rating}
+    F -- rating 4 (definite) --> G[incident cases (n=40)]
+    F -- rating 1 (not present) --> H[healthy controls (n=47)]
+    F -- rating 2 (probable) --> I[excluded subthreshold (n=1)]
