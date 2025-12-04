@@ -46,7 +46,7 @@ to identify participants who were diagnosed with a new-onset psychiatric disorde
 1.  **healthy at the first three assessments:** participants were considered healthy (diagnosis-free) through mid-adolescence (n=106; 47.3% of the full sample) if complete k-sads diagnostic data were available at each of the first three assessments and all current diagnoses were coded as 1 = not present across these timepoints (participants with ratings of 2 = probable or 3 = partial remission were excluded from analysis).
 2.  **diagnostic classification at the last assessment:** of the 106 healthy participants, 88 had valid diagnostic data at the final assessment. incident cases were defined as participants who received a rating of 4 = definite for any psychiatric diagnosis (n=40), indicating the first onset of a psychiatric disorder between mid-adolescence and early adulthood. healthy controls were those with 1 = not present ratings for all diagnoses at all timepoints (n=47). one participant exhibited subthreshold symptoms (2 = probable) and was excluded from analyses, yielding a final analytic sample of n=87 consisting of incident cases (n=40; 46.0% of subsample) and healthy controls (n=47; 54.0%).
 
-this classification ensured that estimates of developmental lability in ed captured pre-morbid variability, avoiding confounding with a concurrent psychiatric diagnosis. focusing on first-onset diagnoses in early adulthood provides a developmentally specific window for identifying antecedent rather than concurrent correlates of disorder onset. such a framing is consistent with prior findings that the timing of diagnosis onset is associated with distinct etiologic pathways, with earlier-onset cases linked to stronger neurodevelopmental and familial factors (jaffee et al., 2002) and later-onset disorders more often emerging in the context of ongoing maturation of regulatory systems (casey et al., 2019).
+this classification avoids confounding with a concurrent psychiatric diagnosis. focusing on first-onset diagnoses in early adulthood provides a developmentally specific window for identifying antecedent rather than concurrent correlates of disorder onset. such a framing is consistent with prior findings that the timing of diagnosis onset is associated with distinct etiologic pathways, with earlier-onset cases linked to stronger neurodevelopmental and familial factors (jaffee et al., 2002) and later-onset disorders more often emerging in the context of ongoing maturation of regulatory systems (casey et al., 2019).
 
 ### inter-rater reliability
 
@@ -56,15 +56,5 @@ to assess inter-rater reliability of the diagnoses, we randomly selected five au
 * given that subthreshold and past ratings (e.g., 2 or 3) were excluded from the analytic sample, we also evaluated reliability focused on classifying diagnoses as absent versus present (e.g., 1 or 4).
 * raters demonstrated high reliability, with gwet’s ac1 = 0.73, a stable chance-corrected estimate for dichotomous diagnostic classifications.
 
-figure 1. flowchart of criteria for the final analytic sample.
+  
 
-```mermaid
-graph TD
-    A[full cohort (n=224)<br>completed k-sads at baseline] --> B{healthy t1-t3?}
-    B -- no --> C[excluded from subsample]
-    B -- yes (n=106) --> D{valid data at t4/t5?}
-    D -- no --> E[lost to follow-up / missing data]
-    D -- yes (n=88) --> F{final assessment rating}
-    F -- rating 4 (definite) --> G[incident cases (n=40)]
-    F -- rating 1 (not present) --> H[healthy controls (n=47)]
-    F -- rating 2 (probable) --> I[excluded subthreshold (n=1)]
