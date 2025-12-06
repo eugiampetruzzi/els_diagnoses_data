@@ -1,6 +1,6 @@
 # els_diagnoses_data
 
-this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology (snap) lab study of the consequences of early life stress (els) for psychobiological development over the pubertal transition. contact eugiampe@stanford.edu if you have any questions.
+this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology lab study of the consequences of early life stress for psychobiological development over the pubertal transition. contact eugiampe@stanford.edu if you have any questions.
 
 ## files
 
