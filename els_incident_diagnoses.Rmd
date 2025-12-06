@@ -1,0 +1,118 @@
+---
+title: "els_incident_diagnoses"
+author: "eugenia giampetruzzi"
+date: "2025-12-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# setup
+```{r setup, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(readxl)
+
+# paths
+data_path <- "/Users/eu/Library/CloudStorage/OneDrive-Stanford/Research Projects/1 - Data/ELS/diagnoses/diagnostic data/"
+
+# 1-4 coding: 1=no, 2=prob, 3=remission, 4=yes
+d_long <- read_csv(paste0(data_path, "t1-t4 diagnostic data.csv")) %>%
+  mutate(els_id = str_trim(as.character(els_id)))
+
+# 0-1 coding: 0=no, 1=yes
+d_t5 <- read_excel(paste0(data_path, "t5 diagnostic data.xlsx")) %>%
+  rename_with(tolower) %>%
+  mutate(els_id = str_trim(as.character(els_id)))
+```
+
+
+#clean t1-t4 data 
+
+to identify who was healthy at t1, t2, and t3:
+healthy: all items = 1
+diagnosis: any item = 4
+exclude: any item = 2 or 3, or missing data
+
+```{r}
+#clean
+get_status <- function(x) {
+  if(all(is.na(x))) return(NA_character_) 
+  if(any(x == 4, na.rm = TRUE)) return("diag") 
+  if(any(x %in% c(2,3), na.rm = TRUE)) return("exclude") 
+  if(all(x == 1, na.rm = TRUE)) return("healthy")
+  
+  return(NA_character_)
+}
+
+d_clean <- d_long %>%
+  rowwise() %>%
+  mutate(
+    status_t1 = get_status(c_across(ends_with("_T1"))),
+    status_t2 = get_status(c_across(ends_with("_T2"))),
+    status_t3 = get_status(c_across(ends_with("_T3"))),
+    status_t4 = get_status(c_across(ends_with("_T4")))
+  ) %>%
+  ungroup() %>%
+  select(els_id, starts_with("status_"))
+
+#filter healthy
+d_baseline_healthy <- d_clean %>%
+  filter(status_t1 == "healthy", status_t2 == "healthy", status_t3 == "healthy")
+```
+
+#clean t5 data
+```{r}
+# process t5 data
+# 0 = healthy, >0 = diag
+d_t5_clean <- d_t5 %>%
+  rowwise() %>%
+  mutate(
+    diag_sum = sum(c_across(-els_id), na.rm = TRUE),
+    status_t5 = ifelse(diag_sum > 0, "diag", "healthy")
+  ) %>%
+  select(els_id, status_t5)
+```
+
+#incidence
+```{r}
+incidence_df <- d_baseline_healthy %>%
+  left_join(d_t5_clean, by = "els_id") %>%
+  mutate(
+    incidence = case_when(
+      #diagnosis
+      status_t4 == "diag" | status_t5 == "diag" ~ 1,
+      
+      #subthreshold exclude
+      status_t4 == "exclude" ~ NA_real_,
+      
+      #controls
+      status_t4 == "healthy" | status_t5 == "healthy" ~ 0,
+      
+      #na
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  filter(!is.na(incidence))
+
+print("final incidence counts:")
+table(incidence_df$incidence)
+```
+#demographics
+```{r}
+# load demographics
+demo_path <- paste0(data_path, "demographics.csv")
+d_demo <- read_csv(demo_path) %>%
+  mutate(els_id = str_trim(as.character(els_id)))
+
+# merge
+final_df <- incidence_df %>%
+  left_join(d_demo, by = "els_id")
+
+# save
+write_csv(final_df, paste0(data_path, "incidence_subsample.csv"))
+```
+
