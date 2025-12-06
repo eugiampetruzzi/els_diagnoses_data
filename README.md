@@ -1,12 +1,11 @@
 # els_diagnoses_data
 
-this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology lab study of the consequences of early life stress for psychobiological development over the pubertal transition. contact eugiampe@stanford.edu if you have any questions.
+this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology lab study of the consequences of early life stress for psychobiological development over the pubertal transition. data is available upon request. contact eugiampe@stanford.edu if you have any questions.
 
 ## files
 
 * **els_incident_diagnoses.Rmd** = script for wrangling and scoring incident diagnoses in young adulthood; output files include diagnostic data spanning late childhood, early, mid, and late adolescence 
 
- files available upon request
 
 ## methods
 
