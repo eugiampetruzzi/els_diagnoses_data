@@ -1,10 +1,15 @@
 # els_diagnoses_data
 
+this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology (snap) lab study of the consequences of early life stress (els) for psychobiological development over the pubertal transition. contact eugiampe@stanford.edu if you have any questions.
+
 ## files
 
+* **els_incident_diagnoses.Rmd** = script for wrangling and scoring incident diagnoses in young adulthood; output files include diagnostic data spanning late childhood, early, mid, and late adolescence 
 * **t1-t4 diagnostic data.csv** = current diagnosis at t1-t4, coded as 1 diagnosis, 0 no diagnosis: actual ksads variables i.e. no groupings
 * **t5 diagnostic data.xlsx** = current diagnosis at t5, coded as 1 diagnosis, 0 no diagnosis; grouped as explained below
 * **incidence_subsample.csv** = demographic and incidence yes/no for people healthy t1-t3 who received a diagnosis at t4 or t5; have to pull diagnosis labels from files above
+
+note: the full demographic input file required to run this script is not included in this repository 
 
 ## methods
 
