@@ -1,64 +1,75 @@
 # els_diagnoses_data
 
-this repository is associated with interviews collected by the stanford neurodevelopment, affect, and psychopathology lab study of the consequences of early life stress for psychobiological development over the pubertal transition. data is available upon request. contact eugiampe@stanford.edu if you have any questions.
+Analysis of psychiatric diagnoses from the Stanford Neurodevelopment, Affect, and Psychopathology (SNAP) Lab's Early Life Stress (ELS) study. Data available upon request — contact eugiampe@stanford.edu.
 
-## files
+---
 
-* **els_incident_diagnoses.Rmd** = script for wrangling and scoring incident diagnoses in young adulthood; output files include diagnostic data spanning late childhood, early, mid, and late adolescence 
+## Files
 
+- **`els_diagnoses.py`** — builds diagnostic category variables and incident diagnosis sample
+- **`flowchart_els_diagnoses.png`** — participant flowchart for incident sample
 
-## methods
+### Outputs
 
-structured clinical interviews were conducted at all four timepoints to assess the presence of a psychiatric diagnosis.
+| File | Description | N |
+|------|-------------|---|
+| `diagnosis_by_group_wide.csv` | Category flags (0/1/NaN) at T1–T5, one row per participant | 225 |
+| `diagnosis_ever.csv` | Ever-diagnosed per category across T1–T5 | 225 |
+| `incident_sample.csv` | Incident design: healthy T1-T3, classified at T4/T5 | ~87 |
 
-* at ages $\le 18$, participants completed the **schedule for affective disorders and schizophrenia for school-age children: present and lifetime version (k-sads-pl; kaufman et al., 1997)**, a semi-structured interview evaluating current and lifetime dsm-iv and dsm-5 disorders in children and adolescents.
-* at ages $\ge 19$, participants completed the **structured clinical interview for dsm-5 (scid-5; first et al., 2015)** to assess current and lifetime psychiatric disorders.
+---
 
-interviews were conducted by trained assessors under the supervision of a clinician. for both interviews, diagnostic ratings followed a standardized 0-4 coding scheme:
+## Methods
 
-| rating | definition |
-| :--- | :--- |
-| **0** | no information |
-| **1** | not present |
-| **2** | probable |
-| **3** | partial remission |
-| **4** | definite |
+Structured clinical interviews were conducted at all timepoints to assess psychiatric diagnoses.
 
-## diagnostic categories
+- **T1–T4 (ages ≤18):** Schedule for Affective Disorders and Schizophrenia for School-Age Children — Present and Lifetime Version (K-SADS-PL; Kaufman et al., 1997). Coded 1–4.
+- **T5 (ages ≥19):** Structured Clinical Interview for DSM-5 (SCID-5; First et al., 2015). Coded 0/1.
 
-we included diagnoses in this study that were assessed consistently across all four timepoints:
+### Coding Scheme
 
-* depressive disorders
-* anxiety disorders (including obsessive-compulsive and trauma-related disorders)
-* bipolar and related disorders
-* schizophrenia spectrum and other psychotic disorders
-* substance use disorders
-* eating disorders
-* disruptive disorders
+| Rating | T1–T4 (KSADS) | T5 (SCID) |
+|--------|---------------|-----------|
+| 0 | — | not present |
+| 1 | not present | definite |
+| 2 | probable | — |
+| 3 | partial remission | — |
+| 4 | definite | — |
 
-categories of major disorder were created by combining related sub-diagnoses (see table 1 of the supplement).
+A category flag of **1** at T1–T4 requires at least one constituent diagnosis coded **4 = definite**. T5 flags are taken directly from the pre-aggregated SCID output.
 
-## incident diagnosis subsample
+---
 
-the full cohort (n=224) completed the k-sads at baseline. all participants entered the study free of lifetime psychiatric disorders, consistent with the study’s baseline exclusion criteria.
+## Diagnostic Categories
 
-to identify participants who were diagnosed with a new-onset psychiatric disorder in early adulthood, an ‘incident diagnosis’ subsample was defined using the following criteria (see figure 1):
+OCD is folded into anxiety. ADHD is excluded from primary outcomes.
 
-1.  **healthy at the first three assessments:** participants were considered healthy (diagnosis-free) through mid-adolescence (n=106; 47.3% of the full sample) if complete k-sads diagnostic data were available at each of the first three assessments and all current diagnoses were coded as 1 = not present across these timepoints (participants with ratings of 2 = probable or 3 = partial remission were excluded from analysis).
-2.  **diagnostic classification at the last assessment:** of the 106 healthy participants, 88 had valid diagnostic data at the final assessment. incident cases were defined as participants who received a rating of 4 = definite for any psychiatric diagnosis (n=40), indicating the first onset of a psychiatric disorder between mid-adolescence and early adulthood. healthy controls were those with 1 = not present ratings for all diagnoses at all timepoints (n=47). one participant exhibited subthreshold symptoms (2 = probable) and was excluded from analyses, yielding a final analytic sample of n=87 consisting of incident cases (n=40; 46.0% of subsample) and healthy controls (n=47; 54.0%).
+| Category | T1–T4 Diagnoses Included |
+|----------|--------------------------|
+| depression | MDE (current), dysthymia, DDNOS |
+| anxiety | GAD, panic disorder, agoraphobia, social phobia, separation anxiety, specific phobia, **OCD** |
+| stress | PTSD, acute stress disorder |
+| bipolar | BP-I, BP-II, BP-NOS, hypomania, mania, cyclothymia |
+| schizophrenia | psychosis, brief reactive psychosis |
+| substance | alcohol use disorder, substance use disorder |
+| eating | anorexia, bulimia |
+| disruptive | conduct disorder, ODD |
 
-this classification avoids confounding with a concurrent psychiatric diagnosis. focusing on first-onset diagnoses in early adulthood provides a developmentally specific window for identifying antecedent rather than concurrent correlates of disorder onset. such a framing is consistent with prior findings that the timing of diagnosis onset is associated with distinct etiologic pathways, with earlier-onset cases linked to stronger neurodevelopmental and familial factors (jaffee et al., 2002) and later-onset disorders more often emerging in the context of ongoing maturation of regulatory systems (casey et al., 2019).
+---
 
-### inter-rater reliability
+## Incident Diagnosis Sample
 
-to assess inter-rater reliability of the diagnoses, we randomly selected five audio-recorded interviews from each timepoint (20 total) to be scored by a second trained interviewer who was blind to each participant’s identity and diagnostic history.
+The full cohort (n ≈ 224) completed K-SADS at baseline. To identify first-onset disorders in early adulthood:
 
-* there was 95-100% raw interrater agreement for all diagnoses.
-* given that subthreshold and past ratings (e.g., 2 or 3) were excluded from the analytic sample, we also evaluated reliability focused on classifying diagnoses as absent versus present (e.g., 1 or 4).
-* raters demonstrated high reliability, with gwet’s ac1 = 0.73, a stable chance-corrected estimate for dichotomous diagnostic classifications.
+1. **Healthy at T1–T3:** complete K-SADS data with all items coded 1 (not present). Participants with any rating of 2 or 3 (subthreshold/remission) were excluded.
+2. **Classification at T4/T5:** incident cases received a definite diagnosis (rating = 4 at T4, or 1 at T5). Healthy controls had no diagnosis at T4 or T5. Subthreshold ratings at T4 were excluded.
 
-figure 1. flowchart of criteria for the final analytic sample.
+Final analytic sample: **n ≈ 87** (incident cases n ≈ 40, healthy controls n ≈ 47).
 
-![figure 1 flowchart](flowchart_els_diagnoses.png)
-  
+See `flowchart_els_diagnoses.png` for the full selection flowchart.
 
+### Inter-rater Reliability
+
+Twenty interviews (5 per timepoint) were re-scored blind by a second trained rater.
+- 95–100% raw agreement across all diagnoses
+- Gwet's AC1 = 0.73 for absent vs. present classification
